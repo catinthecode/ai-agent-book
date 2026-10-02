@@ -10,6 +10,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 import requests
+import openai
 from openai import OpenAI
 import pypdf
 from io import BytesIO
@@ -542,8 +543,12 @@ Important: When you have gathered all necessary information and computed the fin
         Returns:
             Dictionary representation of the message
         """
-        msg_dict = message.dict() if hasattr(message, 'dict') else message.model_dump()
-        
+        msg_dict = message.model_dump() if hasattr(message, 'model_dump') else message.dict()
+        # Drop unset SDK fields (function_call, audio, refusal, ...): replaying
+        # them as null is rejected by stricter endpoints such as Gemini's
+        # OpenAI-compatible API ("Value is not a struct: null").
+        msg_dict = {k: v for k, v in msg_dict.items() if v is not None or k == 'content'}
+
         # Remove reasoning_content if in NO_REASONING mode
         if self.context_mode == ContextMode.NO_REASONING and 'reasoning_content' in msg_dict:
             msg_dict.pop('reasoning_content')
